@@ -1,0 +1,135 @@
+
+// Good Morning MT5 Forex Software
+// Developer's Site: forexroboteasy.com
+// Development: Forex Robot Easy Team
+
+// Input Parameters
+input int RangePeriod = 10; // period to calculate the price range
+input int CandleSize = 10; // size of candles for range calculation
+input int RSIPeriod = 14; // period for RSI indicator
+input double TakeProfit = 100.0; // take profit for trades
+input double StopLoss = 50.0; // stop loss for trades
+input ENUM_VOLUME_MODE VolumeMode = VOLUME_FIXED; // volume mode
+input double FixedVolume = 0.01; // fixed volume
+input double RiskPercentage = 2.0; // risk percentage
+input bool AutoVolume = false; // enable auto volume
+input bool GridSystem = false; // enable grid system
+input double BasketTakeProfit = 500.0; // take profit for basket
+
+// Global Variables
+double rangeHigh, rangeLow; // high and low range levels
+double rsiValue; // RSI value
+
+// Initialization Function
+int OnInit()
+{
+   // Set spread protection
+   if (MarketInfo(Symbol(), MODE_SPREAD) > 10)
+   {
+      Print('Spread is too high. Pausing trading.');
+      return INIT_FAILED;
+   }
+   // Calculate range levels
+   rangeHigh = High[iHighest(NULL, 0, MODE_HIGH, RangePeriod, 0)];
+   rangeLow = Low[iLowest(NULL, 0, MODE_LOW, RangePeriod, 0)];
+   return INIT_SUCCEEDED;
+}
+
+// Trading Function
+void OnTick()
+{
+   // Check if it's the opening of the European session
+   if (TimeHour(TimeCurrent()) == 8 && TimeMinute(TimeCurrent()) == 0)
+   {
+      // Calculate RSI
+      rsiValue = iRSI(NULL, 0, RSIPeriod, PRICE_CLOSE, 0);
+      
+      // Check if price is in the middle of the range
+      if (Bid > rangeLow && Bid < rangeHigh)
+      {
+         // Open short trade in the upper part of the range
+         if (Bid >= rangeHigh - (rangeHigh - rangeLow) / 2)
+         {
+            if (GridSystem)
+            {
+               // Open multiple trades with grid system
+               for (int i = 0; i < 5; i++)
+               {
+                  double volume = GetVolume();
+                  if (volume == 0.0)
+                     break;
+                  Trade.PositionOpen(Symbol(), TRADE_ACTION_SELL, volume, Bid, 0, StopLoss, TakeProfit);
+               }
+            }
+            else
+            {
+               // Open a single trade
+               double volume = GetVolume();
+               if (volume > 0.0)
+                  Trade.PositionOpen(Symbol(), TRADE_ACTION_SELL, volume, Bid, 0, StopLoss, TakeProfit);
+            }
+         }
+         // Open long trade in the lower part of the range
+         else if (Bid <= rangeLow + (rangeHigh - rangeLow) / 2)
+         {
+            if (GridSystem)
+            {
+               // Open multiple trades with grid system
+               for (int i = 0; i < 5; i++)
+               {
+                  double volume = GetVolume();
+                  if (volume == 0.0)
+                     break;
+                  Trade.PositionOpen(Symbol(), TRADE_ACTION_BUY, volume, Ask, 0, StopLoss, TakeProfit);
+               }
+            }
+            else
+            {
+               // Open a single trade
+               double volume = GetVolume();
+               if (volume > 0.0)
+                  Trade.PositionOpen(Symbol(), TRADE_ACTION_BUY, volume, Ask, 0, StopLoss, TakeProfit);
+            }
+         }
+      }
+   }
+}
+
+// Function to get volume based on volume mode
+double GetVolume()
+{
+   double volume = 0.0;
+   if (VolumeMode == VOLUME_FIXED)
+   {
+      volume = FixedVolume;
+   }
+   else if (VolumeMode == VOLUME_RISK)
+   {
+      double accountEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+      double accountBalance = AccountInfoDouble(ACCOUNT_BALANCE);
+      double riskAmount = accountEquity * RiskPercentage / 100.0;
+      double maxLoss = accountBalance - riskAmount;
+      volume = NormalizeDouble(maxLoss / StopLoss, 2);
+   }
+   else if (VolumeMode == VOLUME_AUTO)
+   {
+      if (AutoVolume)
+      {
+         // Implement your auto volume calculation logic here
+         volume = 0.01; // Placeholder value, replace with your calculation
+      }
+   }
+   return volume;
+}
+
+// Optimization and Backtesting
+void OnTester()
+{
+   // Implement your optimization and backtesting logic here
+}
+
+// Logical Conclusion
+void OnDeinit(const int reason)
+{
+   // Implement your logical conclusion logic here
+}
